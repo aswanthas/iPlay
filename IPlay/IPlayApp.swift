@@ -9,12 +9,13 @@ import SwiftUI
 
 @main
 struct IPlayApp: App {
-    let persistenceController = PersistenceController.shared
+//    let persistenceController = PersistenceController.shared
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environment(\.managedObjectContext, persistenceController.container.viewContext)
+//            ContentView()
+            AudioListView()
+//                .environment(\.managedObjectContext, persistenceController.container.viewContext)
         }
     }
 }
