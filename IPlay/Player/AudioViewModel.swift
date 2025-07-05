@@ -9,7 +9,7 @@ import Foundation
 import CoreData
 import AVFoundation
 
-class AudioViewModel: ObservableObject {
+class AudioViewModel: NSObject, ObservableObject {
     @Published var tracks: [AudioTrack] = []
     @Published var currentPlayer: AVAudioPlayer?
     @Published var currentlyPlayingFile: String?
@@ -17,7 +17,8 @@ class AudioViewModel: ObservableObject {
 
     private let context = PersistenceController.shared.container.viewContext
 
-    init() {
+    override init() {
+        super.init()
         configureAudioSession()
         preloadFromDocumentsIfNeeded()
         fetchTracks()
@@ -89,6 +90,7 @@ class AudioViewModel: ObservableObject {
             stopPlayback()
             do {
                 currentPlayer = try AVAudioPlayer(contentsOf: fileURL)
+                currentPlayer?.delegate = self
                 currentPlayer?.prepareToPlay()
                 currentPlayer?.play()
                 currentlyPlayingFile = fileName
@@ -160,6 +162,21 @@ class AudioViewModel: ObservableObject {
     }
 }
 
+extension AudioViewModel: AVAudioPlayerDelegate {
+    // MARK: - Auto-play Next Track
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        guard let currentFileName = currentlyPlayingFile else { return }
+        
+        if let currentIndex = tracks.firstIndex(where: { $0.fileName == currentFileName }),
+           currentIndex + 1 < tracks.count {
+            let nextTrack = tracks[currentIndex + 1]
+            togglePlayback(for: nextTrack)
+        } else {
+            // No more tracks — stop
+            stopPlayback()
+        }
+    }
+}
 
 func configureAudioSession() {
     let session = AVAudioSession.sharedInstance()
@@ -170,65 +187,3 @@ func configureAudioSession() {
         print("Failed to configure audio session: \(error)")
     }
 }
-
-
-//class AudioTrackViewModel: ObservableObject {
-//    @Published var tracks: [AudioTrack] = []
-//    
-//    private let viewContext = PersistenceController.shared.container.viewContext
-//    private var player: AVAudioPlayer?
-//
-//    init() {
-//        fetchTracks()
-//    }
-//    
-//    func fetchTracks() {
-//        let request: NSFetchRequest<AudioTrack> = AudioTrack.fetchRequest()
-//        do {
-//            tracks = try viewContext.fetch(request)
-//        } catch {
-//            print("Failed to fetch tracks: \(error.localizedDescription)")
-//        }
-//    }
-//    
-//    func addTrack(title: String, artist: String, fileName: String) {
-//        let newTrack = AudioTrack(context: viewContext)
-//        newTrack.id = UUID()
-//        newTrack.title = title
-//        newTrack.artist = artist
-//        newTrack.fileName = fileName
-//        
-//        saveContext()
-//        fetchTracks()
-//    }
-//    
-//    func deleteTrack(_ track: AudioTrack) {
-//        viewContext.delete(track)
-//        saveContext()
-//        fetchTracks()
-//    }
-//    
-//    func saveContext() {
-//        do {
-//            try viewContext.save()
-//        } catch {
-//            print("Failed to save context: \(error.localizedDescription)")
-//        }
-//    }
-//    
-//    func play(track: AudioTrack) {
-//        guard let fileName = track.fileName else { return }
-//        
-//        let url = getDocumentsDirectory().appendingPathComponent(fileName)
-//        do {
-//            player = try AVAudioPlayer(contentsOf: url)
-//            player?.play()
-//        } catch {
-//            print("Error playing audio file \(fileName): \(error.localizedDescription)")
-//        }
-//    }
-//    
-//    private func getDocumentsDirectory() -> URL {
-//        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-//    }
-//}
