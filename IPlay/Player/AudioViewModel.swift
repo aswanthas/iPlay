@@ -12,6 +12,7 @@ import AVFoundation
 class AudioViewModel: NSObject, ObservableObject {
     @Published var tracks: [AudioTrack] = []
     @Published var currentPlayer: AVAudioPlayer?
+    @Published var currentTrack: AudioTrack?
     @Published var currentlyPlayingFile: String?
     @Published var isPlaying: Bool = false
 
@@ -94,12 +95,23 @@ class AudioViewModel: NSObject, ObservableObject {
                 currentPlayer?.prepareToPlay()
                 currentPlayer?.play()
                 currentlyPlayingFile = fileName
+                currentTrack = track
                 isPlaying = true
             } catch {
                 print("Playback error: \(error)")
                 isPlaying = false
             }
         }
+    }
+    
+    func playNextTrack() {
+        guard let current = currentTrack,
+              let index = tracks.firstIndex(of: current),
+              index + 1 < tracks.count else {
+            return
+        }
+        let nextTrack = tracks[index + 1]
+        togglePlayback(for: nextTrack)
     }
 
     func stopPlayback() {
