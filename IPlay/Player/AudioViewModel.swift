@@ -8,6 +8,7 @@
 import Foundation
 import CoreData
 import AVFoundation
+import MediaPlayer
 
 class AudioViewModel: NSObject, ObservableObject {
     @Published var tracks: [AudioTrack] = []
@@ -21,6 +22,7 @@ class AudioViewModel: NSObject, ObservableObject {
     override init() {
         super.init()
         configureAudioSession()
+        setupRemoteTransportControls()
         preloadFromDocumentsIfNeeded()
         fetchTracks()
         NotificationCenter.default.addObserver(self,
@@ -87,6 +89,8 @@ class AudioViewModel: NSObject, ObservableObject {
                 player.play()
                 isPlaying = true
             }
+            // 🔁 Update Now Playing Info when resuming or pausing
+            updateNowPlayingInfo(for: track)
         } else {
             stopPlayback()
             do {
@@ -97,6 +101,8 @@ class AudioViewModel: NSObject, ObservableObject {
                 currentlyPlayingFile = fileName
                 currentTrack = track
                 isPlaying = true
+                // 🔁 Update Now Playing Info when resuming or pausing
+                updateNowPlayingInfo(for: track)
             } catch {
                 print("Playback error: \(error)")
                 isPlaying = false
@@ -112,6 +118,17 @@ class AudioViewModel: NSObject, ObservableObject {
         }
         let nextTrack = tracks[index + 1]
         togglePlayback(for: nextTrack)
+    }
+    
+    func playPreviousTrack() {
+        guard let current = currentTrack,
+              let index = tracks.firstIndex(of: current),
+              index > 0 else {
+            return
+        }
+
+        let previousTrack = tracks[index - 1]
+        togglePlayback(for: previousTrack)
     }
 
     func stopPlayback() {
@@ -172,6 +189,55 @@ class AudioViewModel: NSObject, ObservableObject {
             }
         }
     }
+    
+    func updateNowPlayingInfo(for track: AudioTrack) {
+        var nowPlayingInfo: [String: Any] = [:]
+
+        nowPlayingInfo[MPMediaItemPropertyTitle] = track.title ?? "Unknown Title"
+        nowPlayingInfo[MPMediaItemPropertyArtist] = track.artist ?? "Unknown Artist"
+
+        if let player = currentPlayer {
+            nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = player.currentTime
+            nowPlayingInfo[MPMediaItemPropertyPlaybackDuration] = player.duration
+            nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = player.isPlaying ? 1.0 : 0.0
+        }
+
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
+    }
+    
+    // handle the previous track button on the lock screen / Control Center:
+    func setupRemoteTransportControls() {
+        let commandCenter = MPRemoteCommandCenter.shared()
+
+        commandCenter.playCommand.addTarget { [weak self] event in
+            guard let self = self,
+                  let track = self.currentTrack else { return .commandFailed }
+            self.currentPlayer?.play()
+            self.isPlaying = true
+            self.updateNowPlayingInfo(for: track)
+            return .success
+        }
+
+        commandCenter.pauseCommand.addTarget { [weak self] event in
+            self?.currentPlayer?.pause()
+            self?.isPlaying = false
+            if let track = self?.currentTrack {
+                self?.updateNowPlayingInfo(for: track)
+            }
+            return .success
+        }
+
+        commandCenter.nextTrackCommand.addTarget { [weak self] event in
+            self?.playNextTrack()
+            return .success
+        }
+
+        commandCenter.previousTrackCommand.addTarget { [weak self] event in
+            self?.playPreviousTrack()
+            return .commandFailed
+        }
+    }
+
 }
 
 extension AudioViewModel: AVAudioPlayerDelegate {
