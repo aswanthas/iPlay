@@ -12,7 +12,7 @@ struct IPlayApp: App {
 
     var body: some Scene {
         WindowGroup {
-            AudioListView()
+            MainView()
         }
     }
 }

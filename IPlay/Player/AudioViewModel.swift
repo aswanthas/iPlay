@@ -19,6 +19,9 @@ class AudioViewModel: NSObject, ObservableObject {
 
     private var nowPlayingTimer: Timer?
     private let context = PersistenceController.shared.container.viewContext
+    var currentPlayerTimer: Timer.TimerPublisher {
+        Timer.publish(every: 1.0, on: .main, in: .common)
+    }
 
     override init() {
         super.init()
