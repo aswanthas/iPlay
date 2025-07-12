@@ -8,8 +8,9 @@
 import SwiftUI
 
 struct AudioListView: View {
-    @StateObject private var viewModel = AudioViewModel()
+    @ObservedObject var viewModel: AudioViewModel
     @State private var showFilePicker = false
+    @State private var showFullScreenPlayer = false
 
     var body: some View {
         NavigationView {
@@ -32,6 +33,10 @@ struct AudioListView: View {
                                     .foregroundColor(.blue)
                             }
                         }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            viewModel.togglePlayback(for: track)
+                        }
                     }
                     .onDelete(perform: viewModel.deleteTracks)
                 }
@@ -50,21 +55,38 @@ struct AudioListView: View {
                         viewModel.importAudioFiles(from: urls)
                     }
                 }
-                if let currentTrack = viewModel.currentTrack {
-                    MiniPlayer(track: currentTrack, isPlaying: viewModel.isPlaying, onPlayPause: {
-                        viewModel.togglePlayback(for: currentTrack)
-                    }, onNext: {
-                        viewModel.playNextTrack()
-                    })
-                    .transition(.move(edge: .bottom))
-                    .animation(.easeInOut(duration: 0.25), value: viewModel.isPlaying)
-                }
+
+//                if let currentTrack = viewModel.currentTrack {
+//                    MiniPlayer(
+//                        track: currentTrack,
+//                        isPlaying: viewModel.isPlaying,
+//                        onPlayPause: {
+//                            viewModel.togglePlayback(for: currentTrack)
+//                        },
+//                        onNext: {
+//                            viewModel.playNextTrack()
+//                        }
+//                    )
+//                    .onTapGesture {
+//                        showFullScreenPlayer = true
+//                    }
+//                    .padding(.bottom, 10)
+//                    .transition(.move(edge: .bottom))
+//                    .animation(.easeInOut(duration: 0.25), value: viewModel.isPlaying)
+//                }
+            }
+            .fullScreenCover(isPresented: $showFullScreenPlayer) {
+                FullScreenPlayerView(viewModel: viewModel)
+                    .ignoresSafeArea()
+                    .presentationDragIndicator(.visible) // shows the swipe-down indicator
             }
         }
     }
 }
 
 
+
+
 #Preview {
-    AudioListView()
+    AudioListView(viewModel: AudioViewModel())
 }
