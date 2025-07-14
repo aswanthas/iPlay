@@ -16,8 +16,13 @@ class AudioViewModel: NSObject, ObservableObject {
     @Published var currentTrack: AudioTrack?
     @Published var currentlyPlayingFile: String?
     @Published var isPlaying: Bool = false
-
+    
+    @Published var playbackTime: TimeInterval = 0
     private var nowPlayingTimer: Timer?
+    
+    @Published var rotationAngle: Double = 0
+    private var rotationTimer: Timer?
+    
     private let context = PersistenceController.shared.container.viewContext
     var currentPlayerTimer: Timer.TimerPublisher {
         Timer.publish(every: 1.0, on: .main, in: .common)
@@ -157,10 +162,12 @@ class AudioViewModel: NSObject, ObservableObject {
                 player.pause()
                 isPlaying = false
                 stopNowPlayingUpdates()
+                stopRotation()
             } else {
                 player.play()
                 isPlaying = true
                 startNowPlayingUpdates()
+                startRotation()
             }
             updateNowPlayingInfo(for: track)
         } else {
@@ -176,18 +183,22 @@ class AudioViewModel: NSObject, ObservableObject {
                 isPlaying = true
 
                 startNowPlayingUpdates()
+                startRotation()
                 updateNowPlayingInfo(for: track)
             } catch {
                 print("Playback error: \(error)")
                 isPlaying = false
+                stopRotation()
             }
         }
     }
 
     func stopPlayback() {
         stopNowPlayingUpdates()
+        stopRotation()
         currentPlayer?.stop()
         currentPlayer = nil
+        playbackTime = 0
         currentTrack = nil
         currentlyPlayingFile = nil
         isPlaying = false
@@ -210,6 +221,13 @@ class AudioViewModel: NSObject, ObservableObject {
         let previousTrack = tracks[index - 1]
         togglePlayback(for: previousTrack)
     }
+    
+    func seek(to time: TimeInterval) {
+        guard let player = currentPlayer else { return }
+        player.currentTime = time
+        playbackTime = time
+        updateNowPlayingInfo(for: currentTrack!)
+    }
 
     // MARK: - Now Playing Info
     func updateNowPlayingInfo(for track: AudioTrack) {
@@ -231,6 +249,7 @@ class AudioViewModel: NSObject, ObservableObject {
         nowPlayingTimer?.invalidate()
         nowPlayingTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             guard let self = self, let track = self.currentTrack else { return }
+            self.playbackTime = self.currentPlayer?.currentTime ?? 0
             self.updateNowPlayingInfo(for: track)
         }
         RunLoop.current.add(nowPlayingTimer!, forMode: .common)
@@ -284,6 +303,24 @@ class AudioViewModel: NSObject, ObservableObject {
             return .success
         }
     }
+    
+    // Image Rotation
+    private func startRotation() {
+        rotationTimer?.invalidate()
+        rotationTimer = Timer.scheduledTimer(withTimeInterval: 0.02, repeats: true) { [weak self] _ in
+            guard let self = self, self.isPlaying else { return }
+            self.rotationAngle += 0.5
+            if self.rotationAngle >= 360 {
+                self.rotationAngle = 0
+            }
+        }
+        RunLoop.main.add(rotationTimer!, forMode: .common)
+    }
+
+    private func stopRotation() {
+        rotationTimer?.invalidate()
+        rotationTimer = nil
+    }
 }
 
 // MARK: - AVAudioPlayerDelegate
@@ -296,7 +333,12 @@ extension AudioViewModel: AVAudioPlayerDelegate {
             let nextTrack = tracks[currentIndex + 1]
             togglePlayback(for: nextTrack)
         } else {
-            stopPlayback()
+            // Last track has finished playing
+            isPlaying = false
+            playbackTime = currentPlayer?.duration ?? 0
+            updateNowPlayingInfo(for: currentTrack!)
+            stopNowPlayingUpdates()
+            stopRotation()
         }
     }
 }
