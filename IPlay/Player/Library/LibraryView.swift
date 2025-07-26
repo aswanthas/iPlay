@@ -9,7 +9,9 @@ import SwiftUI
 
 struct LibraryView: View {
     var body: some View {
-        Text("Hello, World!")
+        ZStack(alignment: .top) {
+            Text("Hello, World!")
+        }
     }
 }
 

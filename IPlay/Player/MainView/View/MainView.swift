@@ -20,7 +20,11 @@ struct MainView: View {
                             .renderingMode(.template)
                             .foregroundStyle(.yellow)
                     }
-                
+            FavorateView()
+                    .tabItem {
+                        Image(systemName: "heart.fill")
+                            .renderingMode(.template)
+                    }
                 LibraryView()
                     .tabItem {
                         Image(systemName: "play.rectangle.on.rectangle")

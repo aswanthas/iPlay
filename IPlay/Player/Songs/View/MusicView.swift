@@ -113,7 +113,7 @@ struct MusicView: View {
             )
             .ignoresSafeArea(.container, edges: .all)
         }
-        .ignoresSafeArea(.all)
+        .ignoresSafeArea(edges: .top)
         .onAppear {
             withAnimation(.easeInOut(duration: 0.3)) {
                 animationContent = true
@@ -126,7 +126,7 @@ struct MusicView: View {
         GeometryReader { geometry in
             let spacing = geometry.size.height * 0.04
             if let track = viewModel.currentTrack,
-               let player = viewModel.currentPlayer {
+               let _ = viewModel.currentPlayer {
                 
                 VStack(spacing: spacing, content: {
                     VStack(spacing: spacing, content: {
@@ -134,7 +134,7 @@ struct MusicView: View {
                             Text(viewModel.currentTrack?.title ?? "Unknown")
                                 .font(.title2)
                                 .fontWeight(.semibold)
-                         
+                         Spacer()
                             // Seek Slider & Time Labels
                             VStack(spacing: 6) {
                                 Slider(
@@ -165,7 +165,7 @@ struct MusicView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             }
-                            .padding(.horizontal)
+//                            .padding(.horizontal)
                             
                             // Playback controls
                             HStack(spacing: 35) {
@@ -214,6 +214,7 @@ struct MusicView: View {
                         }
                     })
                 })
+                
             }
         }
     }
