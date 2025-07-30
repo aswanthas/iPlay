@@ -13,6 +13,7 @@ struct IPlayApp: App {
     var body: some Scene {
         WindowGroup {
             MainView()
+                .environment(\.managedObjectContext, PersistenceController.shared.container.viewContext)
         }
     }
 }

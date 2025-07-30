@@ -128,12 +128,23 @@ struct MusicView: View {
             if let track = viewModel.currentTrack,
                let _ = viewModel.currentPlayer {
                 
-                VStack(spacing: spacing, content: {
                     VStack(spacing: spacing, content: {
                         VStack(alignment: .center, spacing: 15) {
-                            Text(viewModel.currentTrack?.title ?? "Unknown")
-                                .font(.title2)
-                                .fontWeight(.semibold)
+                            HStack {
+                                Text(viewModel.currentTrack?.title ?? "Unknown")
+                                    .font(.title2)
+                                    .fontWeight(.semibold)
+                                Spacer()
+                                if let track = viewModel.currentTrack {
+                                    Button(action: {
+                                        viewModel.toggleFavorite(for: track)
+                                    }) {
+                                        Image(systemName: track.favorite ? "heart.fill" : "heart")
+                                            .foregroundColor(track.favorite ? .red : .gray)
+                                            .font(.title2)
+                                    }
+                                }
+                            }
                          Spacer()
                             // Seek Slider & Time Labels
                             VStack(spacing: 6) {
@@ -172,10 +183,11 @@ struct MusicView: View {
                                 
                                 Button {
                                     // Toggle shuffle logic
+                                    viewModel.isShuffleEnabled.toggle()
                                 } label: {
                                     Image(systemName: "shuffle")
                                         .font(.title2)
-                                        .foregroundStyle(.white)
+                                        .foregroundStyle(viewModel.isShuffleEnabled ? .orange : .white)
                                 }
                                 
                                 Button {
@@ -203,18 +215,22 @@ struct MusicView: View {
                                 }
                                 
                                 Button {
-                                    // Toggle repeat logic
+                                    viewModel.cycleRepeatMode()
                                 } label: {
-                                    Image(systemName: "repeat")
-                                        .font(.title2)
-                                        .foregroundStyle(.white)
+                                    Group {
+                                        if viewModel.repeatMode == .one {
+                                            Image(systemName: "repeat.1")
+                                        } else {
+                                            Image(systemName: "repeat")
+                                        }
+                                    }
+                                    .font(.title2)
+                                    .foregroundStyle(viewModel.repeatMode == .off ? .white : .orange)
                                 }
                             }
                             .padding(.top, 5)
                         }
-                    })
-                })
-                
+                    })                
             }
         }
     }

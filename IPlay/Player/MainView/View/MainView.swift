@@ -12,37 +12,40 @@ struct MainView: View {
     @State private var expandSheet: Bool = false
     @Namespace private var animation
     var body: some View {
-        TabView {
-            Section {
-                AudioListView(viewModel: viewModel)
-                    .tabItem {
-                        Image(systemName: "music.note")
-                            .renderingMode(.template)
-                            .foregroundStyle(.yellow)
-                    }
-            FavorateView()
-                    .tabItem {
-                        Image(systemName: "heart.fill")
-                            .renderingMode(.template)
-                    }
-                LibraryView()
-                    .tabItem {
-                        Image(systemName: "play.rectangle.on.rectangle")
-                            .renderingMode(.template)
-                    }
+        NavigationStack {
+            TabView {
+                Section {
+                    AudioListView(viewModel: viewModel)
+                        .tabItem {
+                            Image(systemName: "music.note")
+                                .renderingMode(.template)
+                                .foregroundStyle(.yellow)
+                        }
+                    FavoriteView()
+                        .tabItem {
+                            Image(systemName: "heart.fill")
+                                .renderingMode(.template)
+                        }
+                    LibraryView()
+                        .tabItem {
+                            Image(systemName: "play.rectangle.on.rectangle")
+                                .renderingMode(.template)
+                        }
+                }
+                .toolbarBackground(.visible, for: .tabBar)
+                .toolbarBackground(.ultraThickMaterial, for: .tabBar)
             }
-            .toolbarBackground(.visible, for: .tabBar)
-            .toolbarBackground(.ultraThickMaterial, for: .tabBar)
-        }
-//        .tint(.white)
-        .safeAreaInset(edge: .bottom) {
+            //        .tint(.white)
+            .safeAreaInset(edge: .bottom) {
                 CustomBottomSheetview()
-        }
-        .overlay {
-            if expandSheet {
-                MusicView(expandSheet: $expandSheet, animation: animation, viewModel: viewModel)
+            }
+            .overlay {
+                if expandSheet {
+                    MusicView(expandSheet: $expandSheet, animation: animation, viewModel: viewModel)
+                }
             }
         }
+        .environmentObject(viewModel)
     }
     
     @ViewBuilder

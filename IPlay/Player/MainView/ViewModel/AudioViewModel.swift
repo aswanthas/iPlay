@@ -10,7 +10,7 @@ import CoreData
 import AVFoundation
 import MediaPlayer
 
-class AudioViewModel: NSObject, ObservableObject {
+final class AudioViewModel: NSObject, ObservableObject {
     @Published var tracks: [AudioTrack] = []
     @Published var currentPlayer: AVAudioPlayer?
     @Published var currentTrack: AudioTrack?
@@ -27,6 +27,15 @@ class AudioViewModel: NSObject, ObservableObject {
     var currentPlayerTimer: Timer.TimerPublisher {
         Timer.publish(every: 1.0, on: .main, in: .common)
     }
+    
+    @Published var isShuffleEnabled: Bool = false
+    enum RepeatMode: String, CaseIterable {
+        case off, one, all
+    }
+    @Published var repeatMode: RepeatMode = .off
+    
+    // MARK: - Playlists
+    @Published var playlists: [Playlist] = []
 
     override init() {
         super.init()
@@ -34,7 +43,8 @@ class AudioViewModel: NSObject, ObservableObject {
         setupRemoteTransportControls()
         preloadFromDocumentsIfNeeded()
         fetchTracks()
-
+        fetchPlaylists()
+        
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleAudioInterruption),
@@ -151,7 +161,42 @@ class AudioViewModel: NSObject, ObservableObject {
             }
         }
     }
+    // MARK: - Playlists
+    func fetchPlaylists() {
+        let request: NSFetchRequest<Playlist> = Playlist.fetchRequest()
+        do {
+            playlists = try context.fetch(request)
+        } catch {
+            print("Fetch playlists error: \(error)")
+        }
+    }
 
+    func createPlaylist(named name: String) {
+        let playlist = Playlist(context: context)
+        playlist.id = UUID()
+        playlist.name = name
+        saveContext()
+        fetchPlaylists()
+    }
+
+    func addTrack(_ track: AudioTrack, to playlist: Playlist) {
+        playlist.addToTracks(track)
+        saveContext()
+        fetchPlaylists()
+    }
+
+    func removeTrack(_ track: AudioTrack, from playlist: Playlist) {
+        playlist.removeFromTracks(track)
+        saveContext()
+        fetchPlaylists()
+    }
+
+    func deletePlaylist(_ playlist: Playlist) {
+        context.delete(playlist)
+        saveContext()
+        fetchPlaylists()
+    }
+    
     // MARK: - Playback Control
     func togglePlayback(for track: AudioTrack) {
         let fileName = track.fileName ?? ""
@@ -205,21 +250,59 @@ class AudioViewModel: NSObject, ObservableObject {
     }
 
     func playNextTrack() {
+        guard !tracks.isEmpty else { return }
+        
+        if isShuffleEnabled {
+            // Pick a random track that is not the current one
+            let availableTracks = tracks.filter { $0 != currentTrack }
+            if let randomTrack = availableTracks.randomElement() {
+                togglePlayback(for: randomTrack)
+            } else if repeatMode == .all {
+                // If no available tracks (only one track), replay it
+                if let currentTrack = currentTrack {
+                    togglePlayback(for: currentTrack)
+                }
+            }
+            return
+        }
+        
         guard let current = currentTrack,
-              let index = tracks.firstIndex(of: current),
-              index + 1 < tracks.count else { return }
-
-        let nextTrack = tracks[index + 1]
-        togglePlayback(for: nextTrack)
+              let index = tracks.firstIndex(of: current) else { return }
+        if index + 1 < tracks.count {
+            let nextTrack = tracks[index + 1]
+            togglePlayback(for: nextTrack)
+        } else if repeatMode == .all {
+            // Loop to first track
+            if let first = tracks.first {
+                togglePlayback(for: first)
+            }
+        }
     }
-
+    
     func playPreviousTrack() {
         guard let current = currentTrack,
-              let index = tracks.firstIndex(of: current),
-              index > 0 else { return }
-
-        let previousTrack = tracks[index - 1]
-        togglePlayback(for: previousTrack)
+              let index = tracks.firstIndex(of: current) else { return }
+        
+        if index > 0 {
+            let previousTrack = tracks[index - 1]
+            togglePlayback(for: previousTrack)
+        } else if repeatMode == .all {
+            // Loop to last track
+            if let lastTrack = tracks.last {
+                togglePlayback(for: lastTrack)
+            }
+        }
+    }
+    
+    func cycleRepeatMode() {
+        switch repeatMode {
+        case .off:
+            repeatMode = .all
+        case .all:
+            repeatMode = .one
+        case .one:
+            repeatMode = .off
+        }
     }
     
     func seek(to time: TimeInterval) {
@@ -304,6 +387,24 @@ class AudioViewModel: NSObject, ObservableObject {
         }
     }
     
+    // MARK: - Favorite
+    var favoriteTracks: [AudioTrack] {
+        tracks.filter { $0.favorite }
+    }
+    
+    func toggleFavorite(for track: AudioTrack) {
+        track.favorite.toggle()
+        saveContext()
+        fetchTracks()
+    }
+    
+    private func saveContext() {
+        do {
+            try context.save()
+        } catch {
+            debugPrint("Failed to save favorite content:  \(error)")
+        }
+    }
     // Image Rotation
     private func startRotation() {
         rotationTimer?.invalidate()
@@ -323,22 +424,41 @@ class AudioViewModel: NSObject, ObservableObject {
     }
 }
 
+
+
 // MARK: - AVAudioPlayerDelegate
 extension AudioViewModel: AVAudioPlayerDelegate {
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         guard let currentFileName = currentlyPlayingFile else { return }
 
-        if let currentIndex = tracks.firstIndex(where: { $0.fileName == currentFileName }),
-           currentIndex + 1 < tracks.count {
-            let nextTrack = tracks[currentIndex + 1]
-            togglePlayback(for: nextTrack)
-        } else {
-            // Last track has finished playing
-            isPlaying = false
-            playbackTime = currentPlayer?.duration ?? 0
-            updateNowPlayingInfo(for: currentTrack!)
-            stopNowPlayingUpdates()
-            stopRotation()
+        // Handle repeat one mode
+        if repeatMode == .one {
+            // Replay the same track
+            if let currentTrack = currentTrack {
+                togglePlayback(for: currentTrack)
+            }
+            return
+        }
+
+        // Handle repeat all mode or normal progression
+        if let currentIndex = tracks.firstIndex(where: { $0.fileName == currentFileName }) {
+            if currentIndex + 1 < tracks.count {
+                // Play next track
+                let nextTrack = tracks[currentIndex + 1]
+                togglePlayback(for: nextTrack)
+            } else if repeatMode == .all {
+                // Loop to first track
+                if let firstTrack = tracks.first {
+                    togglePlayback(for: firstTrack)
+                }
+            } else {
+                // Repeat mode is off - stop playback
+                isPlaying = false
+                playbackTime = currentPlayer?.duration ?? 0
+                updateNowPlayingInfo(for: currentTrack!)
+                stopNowPlayingUpdates()
+                stopRotation()
+            }
         }
     }
 }
