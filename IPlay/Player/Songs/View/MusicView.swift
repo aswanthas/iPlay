@@ -113,7 +113,7 @@ struct MusicView: View {
             )
             .ignoresSafeArea(.container, edges: .all)
         }
-        .ignoresSafeArea(.all)
+        .ignoresSafeArea(edges: .top)
         .onAppear {
             withAnimation(.easeInOut(duration: 0.3)) {
                 animationContent = true
@@ -126,15 +126,26 @@ struct MusicView: View {
         GeometryReader { geometry in
             let spacing = geometry.size.height * 0.04
             if let track = viewModel.currentTrack,
-               let player = viewModel.currentPlayer {
+               let _ = viewModel.currentPlayer {
                 
-                VStack(spacing: spacing, content: {
                     VStack(spacing: spacing, content: {
                         VStack(alignment: .center, spacing: 15) {
-                            Text(viewModel.currentTrack?.title ?? "Unknown")
-                                .font(.title2)
-                                .fontWeight(.semibold)
-                         
+                            HStack {
+                                Text(viewModel.currentTrack?.title ?? "Unknown")
+                                    .font(.title2)
+                                    .fontWeight(.semibold)
+                                Spacer()
+                                if let track = viewModel.currentTrack {
+                                    Button(action: {
+                                        viewModel.toggleFavorite(for: track)
+                                    }) {
+                                        Image(systemName: track.favorite ? "heart.fill" : "heart")
+                                            .foregroundColor(track.favorite ? .red : .gray)
+                                            .font(.title2)
+                                    }
+                                }
+                            }
+                         Spacer()
                             // Seek Slider & Time Labels
                             VStack(spacing: 6) {
                                 Slider(
@@ -165,17 +176,18 @@ struct MusicView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             }
-                            .padding(.horizontal)
+//                            .padding(.horizontal)
                             
                             // Playback controls
                             HStack(spacing: 35) {
                                 
                                 Button {
                                     // Toggle shuffle logic
+                                    viewModel.isShuffleEnabled.toggle()
                                 } label: {
                                     Image(systemName: "shuffle")
                                         .font(.title2)
-                                        .foregroundStyle(.white)
+                                        .foregroundStyle(viewModel.isShuffleEnabled ? .orange : .white)
                                 }
                                 
                                 Button {
@@ -203,17 +215,22 @@ struct MusicView: View {
                                 }
                                 
                                 Button {
-                                    // Toggle repeat logic
+                                    viewModel.cycleRepeatMode()
                                 } label: {
-                                    Image(systemName: "repeat")
-                                        .font(.title2)
-                                        .foregroundStyle(.white)
+                                    Group {
+                                        if viewModel.repeatMode == .one {
+                                            Image(systemName: "repeat.1")
+                                        } else {
+                                            Image(systemName: "repeat")
+                                        }
+                                    }
+                                    .font(.title2)
+                                    .foregroundStyle(viewModel.repeatMode == .off ? .white : .orange)
                                 }
                             }
                             .padding(.top, 5)
                         }
-                    })
-                })
+                    })                
             }
         }
     }

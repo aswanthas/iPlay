@@ -18,12 +18,14 @@ struct AudioListView: View {
                 List {
                     ForEach(viewModel.tracks, id: \.self) { track in
                         HStack {
-                            VStack(alignment: .leading) {
+                            VStack(alignment: .leading, spacing: 4) {
                                 Text(track.title ?? "Untitled")
                                     .font(.headline)
+                                    .lineLimit(1)
                                 Text(track.fileName ?? "")
                                     .font(.caption)
                                     .foregroundColor(.gray)
+                                    .lineLimit(1)
                             }
                             Spacer()
                             Button(action: {
@@ -34,12 +36,15 @@ struct AudioListView: View {
                             }
                         }
                         .contentShape(Rectangle())
+//                        .listRowInsets(.init(top: 8, leading: 0, bottom: 8, trailing: 0))
+                        .padding(.vertical, 2)
                         .onTapGesture {
                             viewModel.togglePlayback(for: track)
                         }
                     }
                     .onDelete(perform: viewModel.deleteTracks)
                 }
+                .listStyle(.plain)
                 .navigationTitle("My Audio Tracks")
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
@@ -55,25 +60,6 @@ struct AudioListView: View {
                         viewModel.importAudioFiles(from: urls)
                     }
                 }
-
-//                if let currentTrack = viewModel.currentTrack {
-//                    MiniPlayer(
-//                        track: currentTrack,
-//                        isPlaying: viewModel.isPlaying,
-//                        onPlayPause: {
-//                            viewModel.togglePlayback(for: currentTrack)
-//                        },
-//                        onNext: {
-//                            viewModel.playNextTrack()
-//                        }
-//                    )
-//                    .onTapGesture {
-//                        showFullScreenPlayer = true
-//                    }
-//                    .padding(.bottom, 10)
-//                    .transition(.move(edge: .bottom))
-//                    .animation(.easeInOut(duration: 0.25), value: viewModel.isPlaying)
-//                }
             }
             .fullScreenCover(isPresented: $showFullScreenPlayer) {
                 FullScreenPlayerView(viewModel: viewModel)
